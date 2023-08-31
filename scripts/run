@@ -1,0 +1,141 @@
+#!/bin/sh
+
+set -eu
+
+# Usage:
+#   error MESSAGE
+error()
+{
+	echo "::error::$1"
+}
+
+# Usage:
+#   end_group
+end_group()
+{
+	echo "::endgroup::"
+}
+
+# Usage:
+#   start_group GROUP_NAME
+start_group()
+{
+	echo "::group::$1"
+}
+
+# Usage:
+#   check_path_prefix PATH PREFIX
+check_path_prefix()
+{
+	real_prefix=$(realpath "$2")
+	case "$(realpath --canonicalize-missing -- "$1")" in
+		"$real_prefix"|"$real_prefix/"*)
+			return 0
+			;;
+	esac
+
+	return 1
+}
+
+clean_up()
+{
+	rm --force --recursive -- "${build_dir-}"
+}
+
+build_dir=$(mktemp --directory --tmpdir="${RUNNER_TEMP-}" build-rpm-action-XXXXXX) || exit 1
+trap clean_up EXIT INT HUP TERM
+
+env_file=$build_dir/env
+gitconfig_file=$build_dir/gitconfig
+
+INPUT_ARTIFACTS_DIR=${INPUT_ARTIFACTS_DIR:-.}
+if ! check_path_prefix "$INPUT_ARTIFACTS_DIR" "$GITHUB_WORKSPACE"; then
+	error "artifacts_dir is not in GITHUB_WORKSPACE"
+	exit 2
+fi
+
+INPUT_SOURCE_DIR=${INPUT_SOURCE_DIR:-.}
+if ! check_path_prefix "$INPUT_SOURCE_DIR" "$GITHUB_WORKSPACE"; then
+	error "source_dir is not in GITHUB_WORKSPACE"
+	exit 2
+fi
+
+if [ -f "$INPUT_DOCKER_IMAGE" ]; then
+	if ! check_path_prefix "$INPUT_DOCKER_IMAGE" "$GITHUB_WORKSPACE"; then
+		error "docker_image is the path of a Dockerfile but it is not in GITHUB_WORKSPACE"
+		exit 2
+	fi
+
+	start_group "Building container image"
+	image_id_file=$build_dir/image_id
+	docker build \
+		--file="$INPUT_DOCKER_IMAGE" \
+		--iidfile="$image_id_file" \
+		-- "$GITHUB_WORKSPACE/$(dirname -- "$INPUT_DOCKER_IMAGE")"
+	read -r INPUT_DOCKER_IMAGE < "$image_id_file" || :
+	end_group
+fi
+
+start_group "Starting build container"
+# Docker does not like variable values containing newlines in an --env-file.
+env --unset=INPUT_BEFORE_BUILD_HOOK > "$env_file"
+
+# shellcheck disable=SC2086
+container_id=$(docker run \
+	$INPUT_EXTRA_DOCKER_ARGS \
+	--detach \
+	--env-file="$env_file" \
+	--env=GITHUB_ACTION_PATH=/github/action \
+	--env=GITHUB_WORKSPACE=/github/workspace \
+	--mount="type=bind,src=${GITHUB_ACTION_PATH},dst=/github/action,ro" \
+	--mount="type=bind,src=${build_dir},dst=/github/build" \
+	--mount="type=bind,src=${GITHUB_WORKSPACE},dst=/github/workspace" \
+	--rm \
+	--workdir=/github/workspace \
+	-- "$INPUT_DOCKER_IMAGE" tail -f /dev/null
+)
+end_group
+
+start_group "Setting up build container"
+# git is always available here outside the build container, in the environment
+# of a run step.
+
+# To simplify the usage of git from a hook, we mark all directories as safe.
+# Otherwise git would complain, since a hook is run as root but the workspace
+# repository belongs to a different user.
+git config --file="$gitconfig_file" safe.directory '*'
+
+docker exec "$container_id" install \
+	--mode=644 \
+	--no-target-directory \
+	/github/build/gitconfig \
+	/etc/gitconfig
+end_group
+
+start_group "Installing build dependencies"
+docker exec "$container_id" /github/action/scripts/install_build_deps
+end_group
+
+if [ -n "$INPUT_BEFORE_BUILD_HOOK" ]; then
+	start_group "Executing before-build hook"
+	docker exec "$container_id" /bin/sh -c "$INPUT_BEFORE_BUILD_HOOK"
+	end_group
+fi
+
+start_group "Building package"
+docker exec "$container_id" /github/action/scripts/build_packages
+end_group
+
+start_group "Moving artifacts"
+docker exec "$container_id" /github/action/scripts/move_artifacts
+end_group
+
+start_group "find files from container"
+docker exec "$container_id" /github/action/scripts/find_packages >> "${GITHUB_OUTPUT}"
+echo "rpm_dir_path=$INPUT_ARTIFACTS_DIR" >> "${GITHUB_OUTPUT}"
+echo "srpm_dir_path=rpmbuild/SRPMS" >> "${GITHUB_OUTPUT}"
+end_group
+
+start_group "Stopping build container"
+docker stop --time=1 "$container_id" >/dev/null
+end_group

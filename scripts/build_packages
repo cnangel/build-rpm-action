@@ -1,0 +1,5 @@
+#!/bin/sh
+
+set -eu
+
+rpmbuild $INPUT_RPMBUILD_OPTS "/github/workspace/$INPUT_SPEC_FILE"
