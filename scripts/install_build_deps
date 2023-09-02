@@ -7,8 +7,11 @@ if [ -x "$(which dnf 2>/dev/null)" ]
 then
 	dnf_cmd=$(which dnf)
 else
-	echo "No yum or dnf command"
-	exit 1
+	if [ ! -x "$dnf_cmd" ]
+	then
+		echo "No yum or dnf command"
+		exit 1
+	fi
 fi
 
 rpmdev-setuptree
