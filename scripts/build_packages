@@ -2,13 +2,13 @@
 
 set -eu
 
-export RPM_BUILD_OPTIONS="${RPM_BUILD_OPTIONS:+$RPM_BUILD_OPTIONS}"
-export INPUT_HOST_ARCH="${INPUT_HOST_ARCH:+--target $INPUT_HOST_ARCH}"
+export RPM_BUILD_OPTIONS="${RPM_BUILD_OPTIONS:+ $RPM_BUILD_OPTIONS}"
+export INPUT_HOST_ARCH="${INPUT_HOST_ARCH:+ --target $INPUT_HOST_ARCH}"
 if [[ "$INPUT_RPMBUILD_OPTS" =~ t ]]
 then
 	name=$(grep -i 'Name:' "$INPUT_SPEC_FILE" |awk '{print $2}')
 	version=$(grep -i 'Version:' "$INPUT_SPEC_FILE" |awk '{print $2}')
-	rpmbuild $INPUT_RPMBUILD_OPTS "/github/home/rpmbuild/SOURCES/${name}-${version}.tar.gz" $RPM_BUILD_OPTIONS $INPUT_HOST_ARCH
+	rpmbuild "${INPUT_RPMBUILD_OPTS}${RPM_BUILD_OPTIONS}${INPUT_HOST_ARCH}" "/github/home/rpmbuild/SOURCES/${name}-${version}.tar.gz"
 else
-	rpmbuild $INPUT_RPMBUILD_OPTS "/github/workspace/$INPUT_SPEC_FILE" $RPM_BUILD_OPTIONS $INPUT_HOST_ARCH
+	rpmbuild "${INPUT_RPMBUILD_OPTS}${RPM_BUILD_OPTIONS}${INPUT_HOST_ARCH}" "/github/workspace/$INPUT_SPEC_FILE" 
 fi

@@ -131,7 +131,7 @@ docker exec "$container_id" /github/action/scripts/move_artifacts
 end_group
 
 start_group "Find files from container"
-docker exec "$container_id" /github/action/scripts/find_packages >> "${GITHUB_OUTPUT}"
+{ docker exec "$container_id" /github/action/scripts/find_packages; } >> "${GITHUB_OUTPUT}"
 echo "rpm_dir_path=$INPUT_ARTIFACTS_DIR/RPMS" >> "${GITHUB_OUTPUT}"
 echo "srpm_dir_path=$INPUT_ARTIFACTS_DIR/SRPMS" >> "${GITHUB_OUTPUT}"
 end_group
