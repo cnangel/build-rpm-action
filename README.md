@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: cnangel/build-rpm-action@v1
         env:
-          RPM_BUILD_OPTIONS: nodebuginfo
+          RPM_BUILD_OPTIONS: --nodebuginfo
         with:
           rpmbuild_opts: -bb
 ```
@@ -122,7 +122,7 @@ Environment variables work as you would expect. So you can use e.g. the
 ```yaml
 - uses: cnangel/build-rpm-action@v1
   env:
-    RPM_BUILD_OPTIONS: nodebuginfo
+    RPM_BUILD_OPTIONS: --nodebuginfo
 ```
 
 ## Motivation

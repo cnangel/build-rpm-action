@@ -1,0 +1,287 @@
+name: Testing
+
+on:
+  pull_request:
+  push:
+    paths-ignore: [LICENSE, README.md]
+
+jobs:
+  dnf-opts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        with:
+          docker_image: cnangel:el9
+          dnf_opts: --enablerepo=crb
+          rpmbuild_opts: -ta
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el9.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el9.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.el9.src.rpm
+          test -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el9.x86_64.rpm
+          test -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el9.x86_64.rpm
+
+  before-build-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:el9
+          before_build_hook: |
+            cd test
+            sed -i 's#0.0.1#0.0.2#' test.spec
+          rpmbuild_opts: -ta
+          extra_build_deps: devscripts
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.2-1.el9.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.2-1.el9.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.2-1.el9.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.2-1.el9.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.2-1.el9.x86_64.rpm
+
+  default-source_dir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cp -r test/* .
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:el7
+          rpmbuild_opts: -bb
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el7.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el7.x86_64.rpm | grep '/usr/bin/mybin'
+          test ! -f rpmbuild/SRPMS/test-0.0.1-1.el7.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el7.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el7.x86_64.rpm
+
+  different-artifacts-dir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:el8
+          artifacts_dir: my_artifacts
+          rpmbuild_opts: -tb
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm | grep '/usr/bin/mybin'
+          test ! -f rpmbuild/SRPMS/test-0.0.1-1.el8.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el8.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el8.x86_64.rpm
+
+  different-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:fc38
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
+
+  different-host-arch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: sudo dnf install glibc-devel.i686 -y
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:fc38
+          rpmbuild_opts: -ta
+          host_arch: i686
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.i686.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.i686.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.i686.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.i686.rpm
+
+  extra-build-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cat test/Makefile_extra-build-deps >> test/Makefile
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:fc38
+          rpmbuild_opts: -ta
+          # Install an extra package unlikely to be ever installed by default:
+          extra_build_deps: mariadb-devel
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
+
+  extra-docker-args:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cat test/Makefile_extra-docker-args >> test/Makefile
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:el8
+          rpmbuild_opts: -ta
+          source_dir: test
+          extra_docker_args: --add-host extra-args-test:127.0.0.1
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.el8.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el8.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el8.x86_64.rpm
+
+  full-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        with:
+          docker_image: cnangel:el9
+          rpmbuild_opts: -ba
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el9.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el9.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.el9.src.rpm
+          test -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el9.x86_64.rpm
+          test -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el9.x86_64.rpm
+
+  git-as-root-in-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: cnangel:el9
+          before_build_hook: |
+            cd test
+            # Using `git rev-parse` here instead of github.sha to specifically
+            # test the git usage.
+            rev=$(git rev-parse HEAD)
+            sed -i "s#1%{?dist}#${rev}%{?dist}#" test.spec
+          rpmbuild_opts: -ba
+          extra_build_deps: devscripts git
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-${{ github.sha }}.el9.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-${{ github.sha }}.el9.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-${{ github.sha }}.el9.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-${{ github.sha }}.el9.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-${{ github.sha }}.el9.x86_64.rpm
+
+  local-dockerfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: cat test/Makefile_local-dockerfile >> test/Makefile
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          docker_image: test/Dockerfile
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
+          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
+          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
+
+
+  multiple-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        with:
+          rpmbuild_opts: -ba
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpi rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpi rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpi rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
+          rpm -qpl rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpl rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+
+  not-moving-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          artifacts_dir: .
+          rpmbuild_opts: -ba
+          source_dir: test
+      - run: |
+          rpm -qpi RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpi SRPMS/test-0.0.1-1.fc38.src.rpm
+          rpm -qpl RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
+          rpm -qpl SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
+          test ! -f RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
+
+  single-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        env:
+          RPM_BUILD_OPTIONS: --nodebuginfo
+        with:
+          rpmbuild_opts: -bb
+          source_dir: test
+      - run: |
+          test "$(ls -1 rpmbuild/RPMS/x86_64/*.rpm | wc -l)" = 1
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
+          test ! -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+
+  source-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        with:
+          rpmbuild_opts: -ba
+          source_dir: test
+      - run: |
+          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
+          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          rpm -qpl rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm | grep 'test-0.0.1.tar.gz'

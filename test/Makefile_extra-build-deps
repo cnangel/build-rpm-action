@@ -1,0 +1,4 @@
+
+.PHONY: test
+test:
+	test $(pkg-config --modversion mariadb 2>/dev/null)

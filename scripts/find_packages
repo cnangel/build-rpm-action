@@ -2,9 +2,9 @@
 
 set -eu
 
-echo "rpm_dir_names=$(find "$INPUT_ARTIFACTS_DIR" -name "*.rpm" | jo -a | jq -r 'join(",")')"
+echo "rpm_dir_names=$(find "$INPUT_ARTIFACTS_DIR/RPMS" -name "*.rpm" | jo -a | jq -r 'join(",")')"
 if [ "$INPUT_IS_OUTPUT_SRPM" == "true" ]
 then
-	echo "srpm_dir_names=$(find rpmbuild/SRPMS -name "*.rpm" | jo -a | jq -r 'join(",")')"
+	echo "srpm_dir_names=$(find "$INPUT_ARTIFACTS_DIR/SRPMS" -name "*.rpm" | jo -a | jq -r 'join(",")')"
 fi
 

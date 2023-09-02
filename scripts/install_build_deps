@@ -19,7 +19,9 @@ name=$(grep -i 'Name:' "$INPUT_SPEC_FILE" |awk '{print $2}')
 version=$(grep -i 'Version:' "$INPUT_SPEC_FILE" |awk '{print $2}')
 spec_file=$(basename "$INPUT_SPEC_FILE")
 cp "/github/workspace/${INPUT_SPEC_FILE}" "/github/home/rpmbuild/SPECS/${spec_file}"
+pushd "$INPUT_SOURCE_DIR"
 git archive HEAD --format tar.gz --prefix "${name}-${version}/" -o "/github/home/rpmbuild/SOURCES/${name}-${version}.tar.gz"
+popd
 for repo_file in $(echo "$INPUT_ADDITIONAL_REPOS" | jq -r 'join("\n")')
 do
 	"$dnf_cmd" install -y "$repo_file"

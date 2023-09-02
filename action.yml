@@ -17,7 +17,7 @@ inputs:
     description: Options to be passed to dnf or yum
     required: false
   artifacts_dir:
-    default: 'rpmbuild/RPMS'
+    default: 'rpmbuild'
     description: Directory path relative to $GITHUB_WORKSPACE to place the built packages in
     required: true
   before_build_hook:
@@ -26,7 +26,7 @@ inputs:
     required: false
   rpmbuild_opts:
     description: Options to be passed to rpmbuild
-    default: '-ba'
+    default: '-bb'
     required: false
   docker_image:
     default: 'cnangel/fedora38'

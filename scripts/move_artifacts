@@ -2,8 +2,8 @@
 
 set -eu
 
-cp -rf "/github/home/rpmbuild/RPMS" "$INPUT_ARTIFACTS_DIR"
+cp -rf "/github/home/rpmbuild/RPMS" "$INPUT_ARTIFACTS_DIR/"
 if [ "$INPUT_IS_OUTPUT_SRPM" == "true" ]
 then
-	cp -rf "/github/home/rpmbuild/SRPMS" "rpmbuild/SRPMS"
+	cp -rf "/github/home/rpmbuild/SRPMS" "$INPUT_ARTIFACTS_DIR/"
 fi
