@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: ./
         with:
-          docker_image: cnangel:el9
+          docker_image: cnangel/el9
           dnf_opts: --enablerepo=crb
           rpmbuild_opts: -ta
           source_dir: test
@@ -31,12 +31,12 @@ jobs:
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:el9
+          docker_image: cnangel/el9
           before_build_hook: |
             cd test
             sed -i 's#0.0.1#0.0.2#' test.spec
           rpmbuild_opts: -ta
-          extra_build_deps: devscripts
+          extra_build_deps: git
           source_dir: test
       - run: |
           rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.2-1.el9.x86_64.rpm
@@ -51,17 +51,15 @@ jobs:
       - uses: actions/checkout@v3
       - run: cp -r test/* .
       - uses: ./
-        env:
-          RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:el7
+          docker_image: cnangel/el7
           rpmbuild_opts: -bb
       - run: |
           rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el7.x86_64.rpm
           rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el7.x86_64.rpm | grep '/usr/bin/mybin'
           test ! -f rpmbuild/SRPMS/test-0.0.1-1.el7.src.rpm
           test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el7.x86_64.rpm
-          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el7.x86_64.rpm
+          test -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el7.x86_64.rpm
 
   different-artifacts-dir:
     runs-on: ubuntu-latest
@@ -71,16 +69,16 @@ jobs:
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:el8
+          docker_image: cnangel/el8
           artifacts_dir: my_artifacts
           rpmbuild_opts: -tb
           source_dir: test
       - run: |
-          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm
-          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm | grep '/usr/bin/mybin'
-          test ! -f rpmbuild/SRPMS/test-0.0.1-1.el8.src.rpm
-          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.el8.x86_64.rpm
-          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.el8.x86_64.rpm
+          rpm -qpi my_artifacts/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm
+          rpm -qpl my_artifacts/RPMS/x86_64/test-0.0.1-1.el8.x86_64.rpm | grep '/usr/bin/mybin'
+          test ! -f my_artifacts/SRPMS/test-0.0.1-1.el8.src.rpm
+          test ! -f my_artifacts/RPMS/x86_64/test-debugsource-0.0.1-1.el8.x86_64.rpm
+          test ! -f my_artifacts/RPMS/x86_64/test-debuginfo-0.0.1-1.el8.x86_64.rpm
 
   different-docker-image:
     runs-on: ubuntu-latest
@@ -90,12 +88,12 @@ jobs:
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:fc38
+          docker_image: cnangel/fc38
           source_dir: test
       - run: |
           rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
           rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
-          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
           test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
           test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
 
@@ -103,21 +101,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: sudo dnf install glibc-devel.i686 -y
       - uses: ./
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:fc38
+          before_build_hook: dnf install glibc-devel.i686 -y
+          docker_image: cnangel/fc38
           rpmbuild_opts: -ta
           host_arch: i686
           source_dir: test
       - run: |
-          rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.i686.rpm
-          rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.i686.rpm | grep '/usr/bin/mybin'
+          rpm -qpi rpmbuild/RPMS/i686/test-0.0.1-1.fc38.i686.rpm
+          rpm -qpl rpmbuild/RPMS/i686/test-0.0.1-1.fc38.i686.rpm | grep '/usr/bin/mybin'
           test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
-          test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.i686.rpm
-          test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.i686.rpm
+          test ! -f rpmbuild/RPMS/i686/test-debugsource-0.0.1-1.fc38.i686.rpm
+          test ! -f rpmbuild/RPMS/i686/test-debuginfo-0.0.1-1.fc38.i686.rpm
 
   extra-build-deps:
     runs-on: ubuntu-latest
@@ -128,7 +126,7 @@ jobs:
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:fc38
+          docker_image: cnangel/fc38
           rpmbuild_opts: -ta
           # Install an extra package unlikely to be ever installed by default:
           extra_build_deps: mariadb-devel
@@ -149,7 +147,7 @@ jobs:
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:el8
+          docker_image: cnangel/el8
           rpmbuild_opts: -ta
           source_dir: test
           extra_docker_args: --add-host extra-args-test:127.0.0.1
@@ -166,7 +164,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: ./
         with:
-          docker_image: cnangel:el9
+          docker_image: cnangel/el9
           rpmbuild_opts: -ba
           source_dir: test
       - run: |
@@ -184,15 +182,14 @@ jobs:
         env:
           RPM_BUILD_OPTIONS: --nodebuginfo
         with:
-          docker_image: cnangel:el9
+          docker_image: cnangel/el9
           before_build_hook: |
             cd test
             # Using `git rev-parse` here instead of github.sha to specifically
             # test the git usage.
-            rev=$(git rev-parse HEAD)
-            sed -i "s#1%{?dist}#${rev}%{?dist}#" test.spec
+            sed -i "s#1%{?dist}#${{ github.sha }}%{?dist}#" test.spec
           rpmbuild_opts: -ba
-          extra_build_deps: devscripts git
+          extra_build_deps: git
           source_dir: test
       - run: |
           rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-${{ github.sha }}.el9.x86_64.rpm
@@ -215,7 +212,7 @@ jobs:
       - run: |
           rpm -qpi rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm
           rpm -qpl rpmbuild/RPMS/x86_64/test-0.0.1-1.fc38.x86_64.rpm | grep '/usr/bin/mybin'
-          test -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
+          test ! -f rpmbuild/SRPMS/test-0.0.1-1.fc38.src.rpm
           test ! -f rpmbuild/RPMS/x86_64/test-debugsource-0.0.1-1.fc38.x86_64.rpm
           test ! -f rpmbuild/RPMS/x86_64/test-debuginfo-0.0.1-1.fc38.x86_64.rpm
 

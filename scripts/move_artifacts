@@ -1,9 +1,10 @@
 #!/bin/bash
 
-set -eu
+set -x
 
-cp -rf "/github/home/rpmbuild/RPMS" "$INPUT_ARTIFACTS_DIR/"
+mkdir -p "$INPUT_ARTIFACTS_DIR/"
+cp -rf "/root/rpmbuild/RPMS" "$INPUT_ARTIFACTS_DIR/"
 if [ "$INPUT_IS_OUTPUT_SRPM" == "true" ]
 then
-	cp -rf "/github/home/rpmbuild/SRPMS" "$INPUT_ARTIFACTS_DIR/"
+	cp -rf "/root/rpmbuild/SRPMS" "$INPUT_ARTIFACTS_DIR/"
 fi

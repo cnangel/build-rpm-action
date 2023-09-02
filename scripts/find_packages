@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -x
 
 echo "rpm_dir_names=$(find "$INPUT_ARTIFACTS_DIR/RPMS" -name "*.rpm" | jo -a | jq -r 'join(",")')"
 if [ "$INPUT_IS_OUTPUT_SRPM" == "true" ]

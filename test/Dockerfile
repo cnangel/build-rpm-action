@@ -1,3 +1,3 @@
-FROM cnangel/fedora38
+FROM cnangel/fc38
 
 RUN touch /var/lib/Dockerfile-was-here

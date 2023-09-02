@@ -1,14 +1,34 @@
 #!/bin/bash
 
-set -eu
+set -x
 
-export RPM_BUILD_OPTIONS="${RPM_BUILD_OPTIONS:+ $RPM_BUILD_OPTIONS}"
-export INPUT_HOST_ARCH="${INPUT_HOST_ARCH:+ --target $INPUT_HOST_ARCH}"
+# enter INPUT_SOURCE_DIR
+pushd "$INPUT_SOURCE_DIR" || exit 1
+spec_file=$(basename "$INPUT_SPEC_FILE")
+cp "${INPUT_SPEC_FILE}" "/root/rpmbuild/SPECS/${spec_file}"
+PACKAGE_NAME=$(grep -i 'Name:' "$INPUT_SPEC_FILE" | awk '{print $2}')
+if [ -z "$PACKAGE_NAME" ]
+then
+	echo "The $INPUT_SPEC_FILE does not exist the name"
+	exit 1
+fi
+PACKAGE_VERSION=$(grep -i 'Version:' "$INPUT_SPEC_FILE" |awk '{print $2}')
+# If having changed, we will commit it
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
+git add .
+git commit -a -m "commit changed"
+git archive HEAD --format tar.gz --prefix "${PACKAGE_NAME}-${PACKAGE_VERSION}/" -o "/root/rpmbuild/SOURCES/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
+# exit INPUT_SOURCE_DIR
+popd || exit 1
+
+RPM_BUILD_OPTIONS="${RPM_BUILD_OPTIONS:+$RPM_BUILD_OPTIONS}"
+INPUT_HOST_ARCH="${INPUT_HOST_ARCH:+--target $INPUT_HOST_ARCH}"
 if [[ "$INPUT_RPMBUILD_OPTS" =~ t ]]
 then
-	name=$(grep -i 'Name:' "$INPUT_SPEC_FILE" |awk '{print $2}')
-	version=$(grep -i 'Version:' "$INPUT_SPEC_FILE" |awk '{print $2}')
-	rpmbuild "${INPUT_RPMBUILD_OPTS}${RPM_BUILD_OPTIONS}${INPUT_HOST_ARCH}" "/github/home/rpmbuild/SOURCES/${name}-${version}.tar.gz"
+	# shellcheck disable=SC2086
+	rpmbuild ${INPUT_RPMBUILD_OPTS} ${RPM_BUILD_OPTIONS} ${INPUT_HOST_ARCH} "/root/rpmbuild/SOURCES/${PACKAGE_NAME}-${PACKAGE_VERSION}.tar.gz"
 else
-	rpmbuild "${INPUT_RPMBUILD_OPTS}${RPM_BUILD_OPTIONS}${INPUT_HOST_ARCH}" "/github/workspace/$INPUT_SPEC_FILE" 
+	# shellcheck disable=SC2086
+	rpmbuild ${INPUT_RPMBUILD_OPTS} ${RPM_BUILD_OPTIONS} ${INPUT_HOST_ARCH} "/root/rpmbuild/SPECS/$INPUT_SPEC_FILE" 
 fi

@@ -29,7 +29,7 @@ inputs:
     default: '-bb'
     required: false
   docker_image:
-    default: 'cnangel/fedora38'
+    default: 'cnangel/fc38'
     description: Name of a Docker image to build inside or path of a Dockerfile
     required: true
   extra_build_deps:

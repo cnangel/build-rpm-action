@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -x
 
 dnf_cmd=$(which yum 2>/dev/null)
 if [ -x "$(which dnf 2>/dev/null)" ]
@@ -14,22 +14,22 @@ else
 	fi
 fi
 
-rpmdev-setuptree
-name=$(grep -i 'Name:' "$INPUT_SPEC_FILE" |awk '{print $2}')
-version=$(grep -i 'Version:' "$INPUT_SPEC_FILE" |awk '{print $2}')
-spec_file=$(basename "$INPUT_SPEC_FILE")
-cp "/github/workspace/${INPUT_SPEC_FILE}" "/github/home/rpmbuild/SPECS/${spec_file}"
-pushd "$INPUT_SOURCE_DIR"
-git archive HEAD --format tar.gz --prefix "${name}-${version}/" -o "/github/home/rpmbuild/SOURCES/${name}-${version}.tar.gz"
-popd
+if ! rpmdev-setuptree;
+then
+	echo "rpmdev-setuptree fail"
+	exit 1
+fi
+
 for repo_file in $(echo "$INPUT_ADDITIONAL_REPOS" | jq -r 'join("\n")')
 do
 	"$dnf_cmd" install -y "$repo_file"
 done
 
-yum-builddep -y "/github/home/rpmbuild/SPECS/${spec_file}"
+yum-builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
 
 if [ -n "$INPUT_EXTRA_BUILD_DEPS" ]
 then
-	"$dnf_cmd" install -y "$INPUT_DNF_OPTS" -- "$INPUT_EXTRA_BUILD_DEPS"
+	# shellcheck disable=SC2086
+	$dnf_cmd install -y $INPUT_DNF_OPTS -- $INPUT_EXTRA_BUILD_DEPS
 fi
+
