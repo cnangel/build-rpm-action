@@ -63,7 +63,8 @@ outputs:
 runs:
   using: composite
   steps:
-    - id: rpm-build
+    - name: Using composite for rpm build
+      id: rpm-build
       env:
         INPUT_SPEC_FILE: ${{ inputs.spec_file }}
         INPUT_ADDITIONAL_REPOS: ${{ inputs.additional_repos }}
