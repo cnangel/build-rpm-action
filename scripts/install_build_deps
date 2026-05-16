@@ -3,18 +3,18 @@
 set -x
 
 dnf_cmd=""
-if [ -x "$(which dnf5 2>/dev/null)" ]
+if command -v dnf5 >/dev/null 2>&1
 then
-	dnf_cmd=$(which dnf5)
-elif [ -x "$(which microdnf 2>/dev/null)" ]
+	dnf_cmd=$(command -v dnf5)
+elif command -v microdnf >/dev/null 2>&1
 then
-	dnf_cmd=$(which microdnf)
-elif [ -x "$(which dnf 2>/dev/null)" ]
+	dnf_cmd=$(command -v microdnf)
+elif command -v dnf >/dev/null 2>&1
 then
-	dnf_cmd=$(which dnf)
-elif [ -x "$(which yum 2>/dev/null)" ]
+	dnf_cmd=$(command -v dnf)
+elif command -v yum >/dev/null 2>&1
 then
-	dnf_cmd=$(which yum)
+	dnf_cmd=$(command -v yum)
 else
 	echo "No dnf5, microdnf, dnf, or yum command"
 	exit 1
@@ -35,11 +35,14 @@ do
 done
 
 # Use dnf5/microdnf builddep if available, otherwise yum-builddep
-if [ "$dnf_cmd" = "$(which dnf5 2>/dev/null)" ] || [ "$dnf_cmd" = "$(which microdnf 2>/dev/null)" ]; then
-	$dnf_cmd builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
-else
-	yum-builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
-fi
+case "$(basename "$dnf_cmd")" in
+	dnf5|microdnf)
+		$dnf_cmd builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
+		;;
+	*)
+		yum-builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
+		;;
+esac
 
 if [ -n "$INPUT_EXTRA_BUILD_DEPS" ]
 then
