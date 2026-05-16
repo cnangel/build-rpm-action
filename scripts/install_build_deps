@@ -2,17 +2,26 @@
 
 set -x
 
-dnf_cmd=$(which yum 2>/dev/null)
-if [ -x "$(which dnf 2>/dev/null)" ]
+dnf_cmd=""
+if [ -x "$(which dnf5 2>/dev/null)" ]
+then
+	dnf_cmd=$(which dnf5)
+elif [ -x "$(which microdnf 2>/dev/null)" ]
+then
+	dnf_cmd=$(which microdnf)
+elif [ -x "$(which dnf 2>/dev/null)" ]
 then
 	dnf_cmd=$(which dnf)
+elif [ -x "$(which yum 2>/dev/null)" ]
+then
+	dnf_cmd=$(which yum)
 else
-	if [ ! -x "$dnf_cmd" ]
-	then
-		echo "No yum or dnf command"
-		exit 1
-	fi
+	echo "No dnf5, microdnf, dnf, or yum command"
+	exit 1
 fi
+
+# Ensure essential build tools are installed (needed for minimal images like fedora:44)
+$dnf_cmd install -y rpm-build rpmdevtools yum-utils git
 
 if ! rpmdev-setuptree;
 then
@@ -25,7 +34,12 @@ do
 	"$dnf_cmd" install -y "$repo_file"
 done
 
-yum-builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
+# Use dnf5/microdnf builddep if available, otherwise yum-builddep
+if [ "$dnf_cmd" = "$(which dnf5 2>/dev/null)" ] || [ "$dnf_cmd" = "$(which microdnf 2>/dev/null)" ]; then
+	$dnf_cmd builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
+else
+	yum-builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
+fi
 
 if [ -n "$INPUT_EXTRA_BUILD_DEPS" ]
 then
