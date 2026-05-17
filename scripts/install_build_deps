@@ -20,6 +20,17 @@ else
 	exit 1
 fi
 
+# If using microdnf, try to upgrade to full dnf first (microdnf lacks builddep
+# and fails entirely when a single package is missing)
+if [ "$(basename "$dnf_cmd")" = "microdnf" ]; then
+	$dnf_cmd install -y dnf dnf-plugins-core || true
+	if command -v dnf5 >/dev/null 2>&1; then
+		dnf_cmd=$(command -v dnf5)
+	elif command -v dnf >/dev/null 2>&1; then
+		dnf_cmd=$(command -v dnf)
+	fi
+fi
+
 # Ensure essential build tools are installed (needed for minimal images like fedora:44)
 $dnf_cmd install -y rpm-build rpmdevtools yum-utils git jq
 
@@ -34,11 +45,17 @@ do
 	"$dnf_cmd" install -y "$repo_file"
 done
 
-# Install extra build deps before builddep (e.g., stream10-minimal needs dnf installed first)
+# Install extra build deps before builddep
 if [ -n "$INPUT_EXTRA_BUILD_DEPS" ]
 then
 	# shellcheck disable=SC2086
-	$dnf_cmd install -y $INPUT_DNF_OPTS -- $INPUT_EXTRA_BUILD_DEPS
+	if ! $dnf_cmd install -y $INPUT_DNF_OPTS -- $INPUT_EXTRA_BUILD_DEPS; then
+		# Bulk install failed (e.g., some packages not in repos yet).
+		# Fall back to one-by-one so available packages still get installed.
+		for pkg in $INPUT_EXTRA_BUILD_DEPS; do
+			$dnf_cmd install -y $INPUT_DNF_OPTS $pkg || true
+		done
+	fi
 fi
 
 # Re-detect dnf after extra_build_deps (e.g., stream10-minimal now has dnf installed)
