@@ -21,7 +21,7 @@ else
 fi
 
 # Ensure essential build tools are installed (needed for minimal images like fedora:44)
-$dnf_cmd install -y rpm-build rpmdevtools yum-utils git
+$dnf_cmd install -y rpm-build rpmdevtools yum-utils git jq
 
 if ! rpmdev-setuptree;
 then
@@ -34,19 +34,29 @@ do
 	"$dnf_cmd" install -y "$repo_file"
 done
 
-# Use dnf5/microdnf builddep if available, otherwise yum-builddep
+# Install extra build deps before builddep (e.g., stream10-minimal needs dnf installed first)
+if [ -n "$INPUT_EXTRA_BUILD_DEPS" ]
+then
+	# shellcheck disable=SC2086
+	$dnf_cmd install -y $INPUT_DNF_OPTS -- $INPUT_EXTRA_BUILD_DEPS
+fi
+
+# Re-detect dnf after extra_build_deps (e.g., stream10-minimal now has dnf installed)
+if command -v dnf5 >/dev/null 2>&1; then
+	dnf_cmd=$(command -v dnf5)
+elif command -v dnf >/dev/null 2>&1; then
+	dnf_cmd=$(command -v dnf)
+elif command -v yum >/dev/null 2>&1; then
+	dnf_cmd=$(command -v yum)
+fi
+
+# Use dnf5 builddep if available, otherwise yum-builddep
 case "$(basename "$dnf_cmd")" in
-	dnf5|microdnf)
+	dnf5)
 		$dnf_cmd builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
 		;;
 	*)
 		yum-builddep -y "${INPUT_SOURCE_DIR}/${INPUT_SPEC_FILE}"
 		;;
 esac
-
-if [ -n "$INPUT_EXTRA_BUILD_DEPS" ]
-then
-	# shellcheck disable=SC2086
-	$dnf_cmd install -y $INPUT_DNF_OPTS -- $INPUT_EXTRA_BUILD_DEPS
-fi
 
